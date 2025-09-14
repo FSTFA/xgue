@@ -1,8 +1,7 @@
 name: Auto Update SAPCF Docker Image
 
+# 只支持手动触发
 on:
-  schedule:
-    - cron: '0 2 * * *'  # 每天凌晨 2 点
   workflow_dispatch:
 
 jobs:
@@ -10,30 +9,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 拉取仓库
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 登录 GHCR，使用个人 PAT
       - name: Login to GHCR
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: fstfa               # 替换为你的个人 GitHub 用户名（全小写）
+          password: ${{ secrets.GHCR_PAT }}  # 之前添加的 PAT Secret
 
-      - name: Pull original SAPCF image
+      # 拉取上游 SAPCF 镜像
+      - name: Pull upstream SAPCF image
         run: docker pull ghcr.io/uncleluogithub/sapcf:latest
 
+      # 检查是否有更新
+      - name: Check if upstream image updated
+        id: check
+        run: |
+          UPSTREAM_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/uncleluogithub/sapcf:latest)
+          echo "UPSTREAM_DIGEST=$UPSTREAM_DIGEST" >> $GITHUB_ENV
+
+          if docker pull ghcr.io/fstfa/sapcf:latest 2>/dev/null; then
+            LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/fstfa/sapcf:latest)
+          else
+            LOCAL_DIGEST="none"
+          fi
+
+          echo "LOCAL_DIGEST=$LOCAL_DIGEST" >> $GITHUB_ENV
+
+          if [ "$UPSTREAM_DIGEST" = "$LOCAL_DIGEST" ]; then
+            echo "No update needed."
+            echo "updated=false" >> $GITHUB_OUTPUT
+          else
+            echo "Upstream image updated!"
+            echo "updated=true" >> $GITHUB_OUTPUT
+          fi
+
+      # 如果有更新才执行以下操作
       - name: Save image as tar
+        if: steps.check.outputs.updated == 'true'
         run: docker save ghcr.io/uncleluogithub/sapcf:latest -o sapcf.tar
 
       - name: Upload artifact
+        if: steps.check.outputs.updated == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: sapcf-image
           path: sapcf.tar
 
-      - name: Tag image for your GHCR
-        run: docker tag ghcr.io/uncleluogithub/sapcf:latest ghcr.io/${{ github.repository_owner }}/sapcf:latest
+      - name: Tag image for personal GHCR
+        if: steps.check.outputs.updated == 'true'
+        run: docker tag ghcr.io/uncleluogithub/sapcf:latest ghcr.io/fstfa/sapcf:latest
 
-      - name: Push to your GHCR
-        run: docker push ghcr.io/${{ github.repository_owner }}/sapcf:latest
+      - name: Push to personal GHCR
+        if: steps.check.outputs.updated == 'true'
+        run: docker push ghcr.io/fstfa/sapcf:latest
