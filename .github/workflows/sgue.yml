@@ -1,0 +1,39 @@
+name: Auto Update SAPCF Docker Image
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 每天凌晨 2 点
+  workflow_dispatch:
+
+jobs:
+  update-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull original SAPCF image
+        run: docker pull ghcr.io/uncleluogithub/sapcf:latest
+
+      - name: Save image as tar
+        run: docker save ghcr.io/uncleluogithub/sapcf:latest -o sapcf.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapcf-image
+          path: sapcf.tar
+
+      - name: Tag image for your GHCR
+        run: docker tag ghcr.io/uncleluogithub/sapcf:latest ghcr.io/${{ github.repository_owner }}/sapcf:latest
+
+      - name: Push to your GHCR
+        run: docker push ghcr.io/${{ github.repository_owner }}/sapcf:latest
