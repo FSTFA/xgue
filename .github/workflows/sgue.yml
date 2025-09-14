@@ -1,4 +1,4 @@
-name: Auto Update SAPCF Docker Image
+name: Auto Update SGUE Docker Image
 
 # 只支持手动触发
 on:
@@ -32,8 +32,8 @@ jobs:
           UPSTREAM_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/uncleluogithub/sapcf:latest)
           echo "UPSTREAM_DIGEST=$UPSTREAM_DIGEST" >> $GITHUB_ENV
 
-          if docker pull ghcr.io/fstfa/sapcf:latest 2>/dev/null; then
-            LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/fstfa/sapcf:latest)
+          if docker pull ghcr.io/fstfa/sgue:latest 2>/dev/null; then
+            LOCAL_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/fstfa/sgue:latest)
           else
             LOCAL_DIGEST="none"
           fi
@@ -51,19 +51,19 @@ jobs:
       # 如果有更新才执行以下操作
       - name: Save image as tar
         if: steps.check.outputs.updated == 'true'
-        run: docker save ghcr.io/uncleluogithub/sapcf:latest -o sapcf.tar
+        run: docker save ghcr.io/uncleluogithub/sapcf:latest -o sgue.tar
 
       - name: Upload artifact
         if: steps.check.outputs.updated == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: sapcf-image
-          path: sapcf.tar
+          name: sgue-image
+          path: sgue.tar
 
       - name: Tag image for personal GHCR
         if: steps.check.outputs.updated == 'true'
-        run: docker tag ghcr.io/uncleluogithub/sapcf:latest ghcr.io/fstfa/sapcf:latest
+        run: docker tag ghcr.io/uncleluogithub/sapcf:latest ghcr.io/fstfa/sgue:latest
 
       - name: Push to personal GHCR
         if: steps.check.outputs.updated == 'true'
-        run: docker push ghcr.io/fstfa/sapcf:latest
+        run: docker push ghcr.io/fstfa/sgue:latest
